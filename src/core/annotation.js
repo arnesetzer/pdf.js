@@ -236,7 +236,7 @@ class AnnotationFactory {
         }
         warn(
           `Unimplemented widget field type "${fieldType}", ` +
-            "falling back to base field type."
+          "falling back to base field type."
         );
         return new WidgetAnnotation(parameters);
 
@@ -298,7 +298,7 @@ class AnnotationFactory {
           } else {
             warn(
               `Unimplemented annotation type "${subtype}", ` +
-                "falling back to base annotation."
+              "falling back to base annotation."
             );
           }
         }
@@ -2209,7 +2209,7 @@ class WidgetAnnotation extends Annotation {
     return mk.size > 0 ? mk : null;
   }
 
-  amendSavedDict(annotationStorage, dict) {}
+  amendSavedDict(annotationStorage, dict) { }
 
   setValue(dict, value, xref, changes) {
     const { dict: parentDict, ref: parentRef } = getParentToUpdate(
@@ -4064,8 +4064,7 @@ class ChoiceWidgetAnnotation extends WidgetAnnotation {
       for (const index of valueIndices) {
         if (firstIndex <= index && index < end) {
           buf.push(
-            `1 ${
-              totalHeight - (index - firstIndex + 1) * lineHeight
+            `1 ${totalHeight - (index - firstIndex + 1) * lineHeight
             } ${totalWidth} ${lineHeight} re f`
           );
         }
@@ -4353,7 +4352,7 @@ class FreeTextAnnotation extends MarkupAnnotation {
       freetext.delete("RC");
     }
 
-    // DYNAMISCHE BOX FÜR DAS INTERAKTIVE RECHTECK (Schutz vor Abschneiden bei jedem Winkel)
+    // dynamic box for rotated text
     const [x1, y1, x2, y2] = rect;
     const w = x2 - x1;
     const h = y2 - y1;
@@ -4427,11 +4426,10 @@ class FreeTextAnnotation extends MarkupAnnotation {
     const w = x2 - x1;
     const h = y2 - y1;
 
-    // 1. Exakten Mittelpunkt des Textfeldes bestimmen
+    // get center to rotate around it
     const cx = x1 + w / 2;
     const cy = y1 + h / 2;
 
-    // 2. Dynamische Berechnung der umschließenden Bounding Box (Schutz vor Abschneiden)
     const rad = (-rotation * Math.PI) / 180;
     const absCos = Math.abs(Math.cos(rad));
     const absSin = Math.abs(Math.sin(rad));
@@ -4475,25 +4473,22 @@ class FreeTextAnnotation extends MarkupAnnotation {
     const fscale = Math.min(hscale, vscale);
     const newFontSize = fontSize * fscale;
 
-    // 3. UNIVERSYLLE ROTATIONSMATRIX BERECHNEN (Drehung um den Punkt cx, cy)
     const cos = Number(Math.cos(rad).toFixed(5));
     const sin = Number(Math.sin(rad).toFixed(5));
 
-    // Kombinierte Rotations- und Translationskomponenten (tx, ty)
     const tx = Number((cx - cx * cos + cy * sin).toFixed(5));
     const ty = Number((cy - cx * sin - cy * cos).toFixed(5));
 
-    // Wir nutzen eine volle 6-Element-Matrix [a, b, c, d, tx, ty]
     const matrix = [cos, sin, -sin, cos, tx, ty];
     const clipBox = [x1, y1, w, h];
     const firstPoint = [x1, y2 - lineAscent];
 
     const buffer = [
       "q",
-      `${matrix.join(" ")} cm`, // Nutzt nun die vollen 6 Elemente im PDF-Standard
+      `${matrix.join(" ")} cm`,
       `${clipBox.join(" ")} re W n`,
       `BT`,
-      `${getPdfColor(color, /* isFill */ true)}`,
+      `${getPdfColor(color, true)}`,
       `0 Tc /Helv ${numberToString(newFontSize)} Tf`,
     ];
 
@@ -4796,9 +4791,9 @@ class PolylineAnnotation extends MarkupAnnotation {
 }
 
 // Polygons are specific forms of polylines, so reuse their logic.
-class PolygonAnnotation extends PolylineAnnotation {}
+class PolygonAnnotation extends PolylineAnnotation { }
 
-class CaretAnnotation extends MarkupAnnotation {}
+class CaretAnnotation extends MarkupAnnotation { }
 
 class InkAnnotation extends MarkupAnnotation {
   constructor(params) {
@@ -5310,9 +5305,9 @@ class StrikeOutAnnotation extends MarkupAnnotation {
           pointsCallback: (buffer, points) => {
             buffer.push(
               `${(points[0] + points[4]) / 2} ` +
-                `${(points[1] + points[5]) / 2} m`,
+              `${(points[1] + points[5]) / 2} m`,
               `${(points[2] + points[6]) / 2} ` +
-                `${(points[3] + points[7]) / 2} l`,
+              `${(points[3] + points[7]) / 2} l`,
               "S"
             );
             return [points[0], points[7], points[2], points[3]];
