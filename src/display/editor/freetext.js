@@ -925,15 +925,14 @@ class FreeTextEditor extends AnnotationEditor {
   }
 
   #createRotationHandle() {
-    // Falls der Griff schon existiert, nichts tun
+    // Check whether the handle already exists
     if (!this.editorDiv || this.editorDiv.querySelector(".rotation-handle")) {
       return;
     }
 
-    // Drehpunkt bombenfest auf die Mitte fixieren
+    // Set rotation point to center
     this.editorDiv.style.transformOrigin = "center center";
 
-    // 1. Kleinen Verbindungsstrich erstellen (PowerPoint-Style)
     const line = document.createElement("div");
     Object.assign(line.style, {
       position: "absolute",
@@ -947,7 +946,6 @@ class FreeTextEditor extends AnnotationEditor {
     });
     this.editorDiv.append(line);
 
-    // 2. Den runden Rotations-Griff erstellen
     const handle = document.createElement("div");
     handle.className = "rotation-handle";
     Object.assign(handle.style, {
@@ -966,9 +964,8 @@ class FreeTextEditor extends AnnotationEditor {
     });
     this.editorDiv.append(handle);
 
-    // 3. Event-Listener auf POINTERDOWN umstellen, um PDF.js komplett zu blockieren
+    // this is nessecary, otherwise the textbox moves as well
     handle.addEventListener("pointerdown", e => {
-      // Verhindert, dass PDF.js denkt, die Box wird verschoben
       e.preventDefault();
       e.stopPropagation();
       handle.style.cursor = "grabbing";
@@ -979,26 +976,27 @@ class FreeTextEditor extends AnnotationEditor {
       const cy = rect.top + rect.height / 2;
 
       const onPointerMove = moveEvent => {
-        // Auch hier die Bewegung vor PDF.js verstecken
         moveEvent.preventDefault();
         moveEvent.stopPropagation();
 
         const mx = moveEvent.clientX;
         const my = moveEvent.clientY;
 
-        // Winkel im Bogenmaß zur Maus berechnen
+        // Calculate rot angle based on mouse position to center of editor
         const angleRad = Math.atan2(my - cy, mx - cx);
         let angleDeg = angleRad * (180 / Math.PI);
 
-        // Ausrichtung korrigieren (0° ist oben beim Griff)
+        // Set angleDeg between 0-360°
+        // +90 for the atan2 offset
         angleDeg = (angleDeg + 90) % 360;
         if (angleDeg < 0) {
           angleDeg += 360;
         }
 
+        // Round to nearest int
         this.objectRotation = Math.round(angleDeg);
 
-        // UI live updaten
+        // UI update
         this.editorDiv.style.transform = `rotate(${this.objectRotation}deg)`;
       };
 

@@ -236,7 +236,7 @@ class AnnotationFactory {
         }
         warn(
           `Unimplemented widget field type "${fieldType}", ` +
-          "falling back to base field type."
+            "falling back to base field type."
         );
         return new WidgetAnnotation(parameters);
 
@@ -298,7 +298,7 @@ class AnnotationFactory {
           } else {
             warn(
               `Unimplemented annotation type "${subtype}", ` +
-              "falling back to base annotation."
+                "falling back to base annotation."
             );
           }
         }
@@ -2209,7 +2209,7 @@ class WidgetAnnotation extends Annotation {
     return mk.size > 0 ? mk : null;
   }
 
-  amendSavedDict(annotationStorage, dict) { }
+  amendSavedDict(annotationStorage, dict) {}
 
   setValue(dict, value, xref, changes) {
     const { dict: parentDict, ref: parentRef } = getParentToUpdate(
@@ -4064,7 +4064,8 @@ class ChoiceWidgetAnnotation extends WidgetAnnotation {
       for (const index of valueIndices) {
         if (firstIndex <= index && index < end) {
           buf.push(
-            `1 ${totalHeight - (index - firstIndex + 1) * lineHeight
+            `1 ${
+              totalHeight - (index - firstIndex + 1) * lineHeight
             } ${totalWidth} ${lineHeight} re f`
           );
         }
@@ -4791,9 +4792,9 @@ class PolylineAnnotation extends MarkupAnnotation {
 }
 
 // Polygons are specific forms of polylines, so reuse their logic.
-class PolygonAnnotation extends PolylineAnnotation { }
+class PolygonAnnotation extends PolylineAnnotation {}
 
-class CaretAnnotation extends MarkupAnnotation { }
+class CaretAnnotation extends MarkupAnnotation {}
 
 class InkAnnotation extends MarkupAnnotation {
   constructor(params) {
@@ -5305,9 +5306,9 @@ class StrikeOutAnnotation extends MarkupAnnotation {
           pointsCallback: (buffer, points) => {
             buffer.push(
               `${(points[0] + points[4]) / 2} ` +
-              `${(points[1] + points[5]) / 2} m`,
+                `${(points[1] + points[5]) / 2} m`,
               `${(points[2] + points[6]) / 2} ` +
-              `${(points[3] + points[7]) / 2} l`,
+                `${(points[3] + points[7]) / 2} l`,
               "S"
             );
             return [points[0], points[7], points[2], points[3]];
