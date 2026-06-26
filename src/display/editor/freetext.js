@@ -649,6 +649,12 @@ class FreeTextEditor extends AnnotationEditor {
     if (typeof PDFJSDev !== "undefined" && PDFJSDev.test("TESTING")) {
       this.div.setAttribute("annotation-id", this.annotationElementId);
     }
+    if (this.objectRotation === undefined) {
+      this.objectRotation = 0;
+    }
+    this.editorDiv.transformOrigin = "center center";
+    this.editorDiv.style.transform = `rotate(${this.objectRotation}deg)`;
+    this.#createRotationHandle();
 
     return this.div;
   }
@@ -852,12 +858,11 @@ class FreeTextEditor extends AnnotationEditor {
       color,
       fontSize: this.#fontSize,
       value: this.#serializeContent(),
+      rotation: this.objectRotation || 0, // <-- HIER DEINE ROTATION HINZUFÜGEN
     });
     this.addComment(serialized);
 
     if (isForCopying) {
-      // Don't add the id when copying because the pasted editor mustn't be
-      // linked to an existing annotation.
       serialized.isCopy = true;
       return serialized;
     }
@@ -917,6 +922,103 @@ class FreeTextEditor extends AnnotationEditor {
   resetAnnotationElement(annotation) {
     super.resetAnnotationElement(annotation);
     annotation.resetEdited();
+  }
+
+  #createRotationHandle() {
+    // Falls der Griff schon existiert, nichts tun
+    if (!this.editorDiv || this.editorDiv.querySelector(".rotation-handle")) {
+      return;
+    }
+
+    // Drehpunkt bombenfest auf die Mitte fixieren
+    this.editorDiv.style.transformOrigin = "center center";
+
+    // 1. Kleinen Verbindungsstrich erstellen (PowerPoint-Style)
+    const line = document.createElement("div");
+    Object.assign(line.style, {
+      position: "absolute",
+      top: "-12px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      width: "1px",
+      height: "12px",
+      backgroundColor: "#007bff",
+      pointerEvents: "none",
+    });
+    this.editorDiv.append(line);
+
+    // 2. Den runden Rotations-Griff erstellen
+    const handle = document.createElement("div");
+    handle.className = "rotation-handle";
+    Object.assign(handle.style, {
+      position: "absolute",
+      top: "-25px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      width: "14px",
+      height: "14px",
+      backgroundColor: "#007bff",
+      borderRadius: "50%",
+      cursor: "grab",
+      zIndex: "100",
+      border: "2px solid #ffffff",
+      boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+    });
+    this.editorDiv.append(handle);
+
+    // 3. Event-Listener auf POINTERDOWN umstellen, um PDF.js komplett zu blockieren
+    handle.addEventListener("pointerdown", e => {
+      // Verhindert, dass PDF.js denkt, die Box wird verschoben
+      e.preventDefault();
+      e.stopPropagation();
+      handle.style.cursor = "grabbing";
+
+      // Mittelpunkt des Editors im Browser-Fenster bestimmen
+      const rect = this.editorDiv.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+
+      const onPointerMove = moveEvent => {
+        // Auch hier die Bewegung vor PDF.js verstecken
+        moveEvent.preventDefault();
+        moveEvent.stopPropagation();
+
+        const mx = moveEvent.clientX;
+        const my = moveEvent.clientY;
+
+        // Winkel im Bogenmaß zur Maus berechnen
+        const angleRad = Math.atan2(my - cy, mx - cx);
+        let angleDeg = angleRad * (180 / Math.PI);
+
+        // Ausrichtung korrigieren (0° ist oben beim Griff)
+        angleDeg = (angleDeg + 90) % 360;
+        if (angleDeg < 0) {
+          angleDeg += 360;
+        }
+
+        this.objectRotation = Math.round(angleDeg);
+
+        // UI live updaten
+        this.editorDiv.style.transform = `rotate(${this.objectRotation}deg)`;
+      };
+
+      const onPointerUp = upEvent => {
+        upEvent.preventDefault();
+        upEvent.stopPropagation();
+
+        handle.style.cursor = "grab";
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+
+        if (typeof this.hasChanged === "function") {
+          this.hasChanged();
+        }
+      };
+
+      // Listener auf Window-Ebene ebenfalls als PointerEvents registrieren
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+    });
   }
 }
 

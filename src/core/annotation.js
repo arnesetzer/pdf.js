@@ -4280,6 +4280,7 @@ class FreeTextAnnotation extends MarkupAnnotation {
     const { annotationGlobals, xref } = params;
     this.setDefaultAppearance(params);
     this._hasAppearance = !!this.appearance;
+    this.rotation = params.data?.rotation || 0;
 
     if (this._hasAppearance) {
       const { fontColor, fontSize } = parseAppearanceStream(
@@ -4324,6 +4325,9 @@ class FreeTextAnnotation extends MarkupAnnotation {
   }
 
   get hasTextContent() {
+    if (this.rotation !== 0) {
+      return true;
+    }
     return this._hasAppearance;
   }
 
@@ -4346,11 +4350,30 @@ class FreeTextAnnotation extends MarkupAnnotation {
       `D:${getModificationDate(date)}`
     );
     if (oldAnnotation) {
-      // TODO: We should try to generate a new RC from the content we've.
-      // For now we can just remove it to avoid any issues.
       freetext.delete("RC");
     }
-    freetext.setIfArray("Rect", rect);
+
+    // DYNAMISCHE BOX FÜR DAS INTERAKTIVE RECHTECK (Schutz vor Abschneiden bei jedem Winkel)
+    const [x1, y1, x2, y2] = rect;
+    const w = x2 - x1;
+    const h = y2 - y1;
+    const cx = x1 + w / 2;
+    const cy = y1 + h / 2;
+    const rad = (rotation * Math.PI) / 180;
+    const absCos = Math.abs(Math.cos(rad));
+    const absSin = Math.abs(Math.sin(rad));
+    const newW = w * absCos + h * absSin;
+    const newH = w * absSin + h * absCos;
+
+    const expandedRect = [
+      cx - newW / 2,
+      cy - newH / 2,
+      cx + newW / 2,
+      cy + newH / 2,
+    ];
+
+    freetext.set("Rect", expandedRect);
+
     const da = `/Helv ${fontSize} Tf ${getPdfColor(color, /* isFill */ true)}`;
     freetext.set("DA", da);
     freetext.setIfDefined("Contents", stringToAsciiOrUTF16BE(value));
@@ -4401,12 +4424,26 @@ class FreeTextAnnotation extends MarkupAnnotation {
     );
 
     const [x1, y1, x2, y2] = rect;
-    let w = x2 - x1;
-    let h = y2 - y1;
+    const w = x2 - x1;
+    const h = y2 - y1;
 
-    if (rotation % 180 !== 0) {
-      [w, h] = [h, w];
-    }
+    // 1. Exakten Mittelpunkt des Textfeldes bestimmen
+    const cx = x1 + w / 2;
+    const cy = y1 + h / 2;
+
+    // 2. Dynamische Berechnung der umschließenden Bounding Box (Schutz vor Abschneiden)
+    const rad = (-rotation * Math.PI) / 180;
+    const absCos = Math.abs(Math.cos(rad));
+    const absSin = Math.abs(Math.sin(rad));
+    const newW = w * absCos + h * absSin;
+    const newH = w * absSin + h * absCos;
+
+    const expandedRect = [
+      cx - newW / 2,
+      cy - newH / 2,
+      cx + newW / 2,
+      cy + newH / 2,
+    ];
 
     const lines = value.split("\n");
     const scale = fontSize / 1000;
@@ -4415,7 +4452,6 @@ class FreeTextAnnotation extends MarkupAnnotation {
     for (let line of lines) {
       const encoded = helv.encodeString(line);
       if (encoded.length > 1) {
-        // The font doesn't contain all the chars.
         return null;
       }
       line = encoded.join("");
@@ -4438,33 +4474,23 @@ class FreeTextAnnotation extends MarkupAnnotation {
     }
     const fscale = Math.min(hscale, vscale);
     const newFontSize = fontSize * fscale;
-    let firstPoint, clipBox, matrix;
-    switch (rotation) {
-      case 0:
-        matrix = [1, 0, 0, 1];
-        clipBox = [rect[0], rect[1], w, h];
-        firstPoint = [rect[0], rect[3] - lineAscent];
-        break;
-      case 90:
-        matrix = [0, 1, -1, 0];
-        clipBox = [rect[1], -rect[2], w, h];
-        firstPoint = [rect[1], -rect[0] - lineAscent];
-        break;
-      case 180:
-        matrix = [-1, 0, 0, -1];
-        clipBox = [-rect[2], -rect[3], w, h];
-        firstPoint = [-rect[2], -rect[1] - lineAscent];
-        break;
-      case 270:
-        matrix = [0, -1, 1, 0];
-        clipBox = [-rect[3], rect[0], w, h];
-        firstPoint = [-rect[3], rect[2] - lineAscent];
-        break;
-    }
+
+    // 3. UNIVERSYLLE ROTATIONSMATRIX BERECHNEN (Drehung um den Punkt cx, cy)
+    const cos = Number(Math.cos(rad).toFixed(5));
+    const sin = Number(Math.sin(rad).toFixed(5));
+
+    // Kombinierte Rotations- und Translationskomponenten (tx, ty)
+    const tx = Number((cx - cx * cos + cy * sin).toFixed(5));
+    const ty = Number((cy - cx * sin - cy * cos).toFixed(5));
+
+    // Wir nutzen eine volle 6-Element-Matrix [a, b, c, d, tx, ty]
+    const matrix = [cos, sin, -sin, cos, tx, ty];
+    const clipBox = [x1, y1, w, h];
+    const firstPoint = [x1, y2 - lineAscent];
 
     const buffer = [
       "q",
-      `${matrix.join(" ")} 0 0 cm`,
+      `${matrix.join(" ")} cm`, // Nutzt nun die vollen 6 Elemente im PDF-Standard
       `${clipBox.join(" ")} re W n`,
       `BT`,
       `${getPdfColor(color, /* isFill */ true)}`,
@@ -4486,9 +4512,16 @@ class FreeTextAnnotation extends MarkupAnnotation {
     appearanceStreamDict.set("FormType", 1);
     appearanceStreamDict.setIfName("Subtype", "Form");
     appearanceStreamDict.setIfName("Type", "XObject");
-    appearanceStreamDict.set("BBox", rect);
+    appearanceStreamDict.set("BBox", expandedRect); // Dynamische Box zuweisen
     appearanceStreamDict.set("Resources", resources);
-    appearanceStreamDict.set("Matrix", [1, 0, 0, 1, -rect[0], -rect[1]]);
+    appearanceStreamDict.set("Matrix", [
+      1,
+      0,
+      0,
+      1,
+      -expandedRect[0],
+      -expandedRect[1],
+    ]);
 
     return new StringStream(appearance, appearanceStreamDict);
   }
