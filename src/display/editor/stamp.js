@@ -974,13 +974,6 @@ class StampEditor extends AnnotationEditor {
     const outputScale = new OutputScale();
     const scaledWidth = Math.ceil(width * parentWidth * outputScale.sx);
     const scaledHeight = Math.ceil(height * parentHeight * outputScale.sy);
-
-    const [parentWidth, parentHeight] = this.pageDimensions;
-    const { width, height } = this;
-    const outputScale = new OutputScale();
-    const scaledWidth = Math.ceil(width * parentWidth * outputScale.sx);
-    const scaledHeight = Math.ceil(height * parentHeight * outputScale.sy);
-
     this.rect = [
       this.x - (scaledWidth - width) / 2,
       this.y - (scaledHeight - height) / 2,
