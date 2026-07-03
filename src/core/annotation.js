@@ -5376,7 +5376,28 @@ class StampAnnotation extends MarkupAnnotation {
       oldAnnotation ? "M" : "CreationDate",
       `D:${getModificationDate(date)}`
     );
-    stamp.setIfArray("Rect", rect);
+    if (rotation) {
+      const [x1, y1, x2, y2] = rect;
+      const w = x2 - x1;
+      const h = y2 - y1;
+      const cx = x1 + w / 2;
+      const cy = y1 + h / 2;
+      const rad = (rotation * Math.PI) / 180;
+      const absCos = Math.abs(Math.cos(rad));
+      const absSin = Math.abs(Math.sin(rad));
+      const newW = w * absCos + h * absSin;
+      const newH = w * absSin + h * absCos;
+
+      const expandedRect = [
+        cx - newW / 2,
+        cy - newH / 2,
+        cx + newW / 2,
+        cy + newH / 2,
+      ];
+      stamp.set("Rect", expandedRect);
+    } else {
+      stamp.setIfArray("Rect", rect);
+    }
     stamp.setIfNotExists("F", 4);
     stamp.setIfNotExists("Border", [0, 0, 0]);
     stamp.setIfNumber("Rotate", rotation);
@@ -5439,11 +5460,12 @@ class StampAnnotation extends MarkupAnnotation {
   }
 
   static #getRotationMatrix(rotation, width, height) {
-    if (rotation % 90 === 0) {
-      return getRotationMatrix(rotation, width, height);
+    const negatedRotation = (360 - rotation) % 360;
+    if (negatedRotation % 90 === 0) {
+      return getRotationMatrix(negatedRotation, width, height);
     }
 
-    const rad = (rotation * Math.PI) / 180;
+    const rad = (negatedRotation * Math.PI) / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
     const points = [
