@@ -451,6 +451,7 @@ class StampEditor extends AnnotationEditor {
 
     this._uiManager.enableWaiting(false);
     const rotationDiv = (this.#rotationDiv = document.createElement("div"));
+    rotationDiv.className = "internal";
     Object.assign(rotationDiv.style, {
       position: "absolute",
       inset: 0,
@@ -955,14 +956,27 @@ class StampEditor extends AnnotationEditor {
   }
 
   #applyObjectRotation() {
+    const rotation = this.objectRotation || 0;
     if (!this.#rotationDiv) {
       return;
     }
-    this.#rotationDiv.style.transform = `rotate(${this.objectRotation || 0}deg)`;
+    this.#rotationDiv.style.transform = `rotate(${rotation}deg)`;
+
+    const resizers = this.div?.querySelector(":scope > .resizers");
+    if (resizers) {
+      resizers.style.transformOrigin = "center center";
+      resizers.style.transform = `rotate(${rotation}deg)`;
+    }
   }
 
   #rotate(angle) {
     this.objectRotation = angle;
+    this.#applyObjectRotation();
+  }
+
+  /** @inheritdoc */
+  select() {
+    super.select();
     this.#applyObjectRotation();
   }
 

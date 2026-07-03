@@ -181,34 +181,20 @@
   cursor: auto;
   max-width: 100%;
   max-height: 100%;
-  border: var(--unfocus-outline);
 
   &.draggable.selectedEditor {
     cursor: move;
   }
+}
+
+.annotationEditorLayer :is(.inkEditor, .signatureEditor) {
+  border: var(--unfocus-outline);
 
   &.selectedEditor {
     border: var(--focus-outline);
     outline: var(--focus-outline-around);
 
     &::before {
-      /*
-        This is a workaround for the lack of support for stripes(...) (see
-        https://drafts.csswg.org/css-images-4/#stripes).
-        The outline should be composed of 1px white, 2px blue and 1px white.
-        This could be achieved in different ways:
-          - using a linear-gradient;
-          - using a box-shadow;
-          - using an outline on the selected element and an outline+border on
-            the ::before pseudo-element.
-        All these options lead to incorrect rendering likely due to rounding
-        issues.
-        That said it doesn't mean that the current is ideal, but it's the best
-        we could come up with for the moment.
-        One drawback of this approach is that we use a border on the selected
-        element which means that we must take care of it when positioning the
-        div in js (see AnnotationEditor._borderLineWidth in editor.js).
-      */
       content: "";
       position: absolute;
       inset: 0;
@@ -226,6 +212,44 @@
       position: absolute;
       inset: 0;
       border: var(--focus-outline-around);
+    }
+  }
+}
+
+.annotationEditorLayer :is(.freeTextEditor, .stampEditor) {
+  border: var(--unfocus-outline);
+
+  .internal {
+    position: relative;
+    border: var(--unfocus-outline);
+  }
+
+  &.selectedEditor {
+    .internal {
+      border: var(--focus-outline);
+      outline: var(--focus-outline-around);
+
+      &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border: var(--focus-outline-around);
+        pointer-events: none;
+      }
+    }
+  }
+
+  &:hover:not(.selectedEditor) {
+    .internal {
+      border: var(--hover-outline);
+      outline: var(--hover-outline-around);
+
+      &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border: var(--focus-outline-around);
+      }
     }
   }
 }
@@ -524,7 +548,7 @@
 
 .annotationEditorLayer .freeTextEditor .internal {
   background: transparent;
-  border: none;
+  border: var(--unfocus-outline);
   inset: 0;
   overflow: visible;
   white-space: nowrap;

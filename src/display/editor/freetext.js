@@ -652,8 +652,7 @@ class FreeTextEditor extends AnnotationEditor {
     if (this.objectRotation === undefined) {
       this.objectRotation = 0;
     }
-    this.editorDiv.transformOrigin = "center center";
-    this.editorDiv.style.transform = `rotate(${this.objectRotation}deg)`;
+    this.#applyObjectRotation();
     this.#createRotationHandle();
 
     return this.div;
@@ -924,6 +923,24 @@ class FreeTextEditor extends AnnotationEditor {
     annotation.resetEdited();
   }
 
+  /** @inheritdoc */
+  select() {
+    super.select();
+    this.#applyObjectRotation();
+  }
+
+  #applyObjectRotation() {
+    const rotation = this.objectRotation || 0;
+    this.editorDiv.style.transformOrigin = "center center";
+    this.editorDiv.style.transform = `rotate(${rotation}deg)`;
+
+    const resizers = this.div?.querySelector(":scope > .resizers");
+    if (resizers) {
+      resizers.style.transformOrigin = "center center";
+      resizers.style.transform = `rotate(${rotation}deg)`;
+    }
+  }
+
   #createRotationHandle() {
     // Check whether the handle already exists
     if (!this.editorDiv || this.editorDiv.querySelector(".rotation-handle")) {
@@ -997,7 +1014,7 @@ class FreeTextEditor extends AnnotationEditor {
         this.objectRotation = Math.round(angleDeg);
 
         // UI update
-        this.editorDiv.style.transform = `rotate(${this.objectRotation}deg)`;
+        this.#applyObjectRotation();
       };
 
       const onPointerUp = upEvent => {
