@@ -52,6 +52,7 @@ import { clearGlobalCaches } from "./cleanup_helper.js";
 import { ColorSpaceUtils } from "./colorspace_utils.js";
 import { FileSpec } from "./file_spec.js";
 import { MetadataParser } from "./metadata_parser.js";
+import { soundStreamToWav } from "./sound.js";
 import { stringToPDFString } from "./string_utils.js";
 import { StructTreeRoot } from "./struct_tree.js";
 
@@ -123,6 +124,8 @@ class Catalog {
 
   #annotationAttachmentRefById = new Map();
 
+  #soundAttachmentIds = new Set();
+
   #catDict = null;
 
   builtInCMapCache = new Map();
@@ -171,28 +174,32 @@ class Catalog {
    *
    * @param {Ref} ref
    *   File-spec or embedded-file stream reference.
+   * @param {boolean} [isSound]
+   *   When set, the referenced stream holds raw PDF sound samples that
+   *   `attachmentContent` wraps in a WAV container on fetch.
    * @returns {string}
    *   Attachment id.
    */
-  getAttachmentIdForAnnotation(ref) {
+  getAttachmentIdForAnnotation(ref, isSound = false) {
     let id = this.#annotationAttachmentIdByRef.get(ref);
-    if (id) {
-      return id;
+    if (!id) {
+      const baseId = `attachmentRef:${ref.toString()}`;
+      id = baseId;
+
+      let i = 1;
+      while (
+        this.#annotationAttachmentRefById.has(id) ||
+        this.attachments?.has(id)
+      ) {
+        id = `${baseId}-${i++}`;
+      }
+
+      this.#annotationAttachmentIdByRef.put(ref, id);
+      this.#annotationAttachmentRefById.set(id, ref);
     }
-
-    const baseId = `attachmentRef:${ref.toString()}`;
-    id = baseId;
-
-    let i = 1;
-    while (
-      this.#annotationAttachmentRefById.has(id) ||
-      this.attachments?.has(id)
-    ) {
-      id = `${baseId}-${i++}`;
+    if (isSound) {
+      this.#soundAttachmentIds.add(id);
     }
-
-    this.#annotationAttachmentIdByRef.put(ref, id);
-    this.#annotationAttachmentRefById.set(id, ref);
     return id;
   }
 
@@ -354,15 +361,11 @@ class Catalog {
   }
 
   #readStructTreeRoot() {
-    const rawObj = this.#catDict.getRaw("StructTreeRoot");
-    const obj = this.xref.fetchIfRef(rawObj);
-    if (!(obj instanceof Dict)) {
-      return null;
-    }
-
-    const root = new StructTreeRoot(this.xref, obj, rawObj);
-    root.init();
-    return root;
+    const rawObj = this.#catDict.getRaw("StructTreeRoot"),
+      obj = this.xref.fetchIfRef(rawObj);
+    return obj instanceof Dict
+      ? new StructTreeRoot(this.xref, obj, rawObj)
+      : null;
   }
 
   get toplevelPagesDict() {
@@ -1202,7 +1205,11 @@ class Catalog {
     if (ref) {
       const target = this.xref.fetch(ref);
       if (target instanceof BaseStream) {
-        return FileSpec.readStreamContent(target);
+        const content = FileSpec.readStreamContent(target);
+        if (this.#soundAttachmentIds.has(id)) {
+          return soundStreamToWav(target, content) ?? content;
+        }
+        return content;
       }
       return target instanceof Dict ? FileSpec.readContent(target) : null;
     }
