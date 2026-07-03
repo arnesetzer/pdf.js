@@ -5427,6 +5427,28 @@ class StampAnnotation extends MarkupAnnotation {
     return new StringStream(appearance, appearanceStreamDict);
   }
 
+  static #getRotationMatrix(rotation, width, height) {
+    if (rotation % 90 === 0) {
+      return getRotationMatrix(rotation, width, height);
+    }
+
+    const rad = (rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const points = [
+      [0, 0],
+      [width * cos, width * sin],
+      [-height * sin, height * cos],
+      [width * cos - height * sin, width * sin + height * cos],
+    ];
+    const minX = Math.min(...points.map(([x]) => x));
+    const minY = Math.min(...points.map(([, y]) => y));
+
+    return [cos, sin, -sin, cos, -minX, -minY].map(
+      value => Math.round(value * 100000) / 100000
+    );
+  }
+
   static async createNewAppearanceStream(annotation, xref, params) {
     if (annotation.oldAnnotation) {
       // We'll use the AP we already have.
@@ -5452,7 +5474,7 @@ class StampAnnotation extends MarkupAnnotation {
     appearanceStreamDict.set("Resources", resources);
 
     if (rotation) {
-      const matrix = getRotationMatrix(rotation, width, height);
+      const matrix = this.#getRotationMatrix(rotation, width, height);
       appearanceStreamDict.set("Matrix", matrix);
     }
 

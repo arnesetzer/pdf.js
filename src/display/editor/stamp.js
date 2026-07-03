@@ -45,9 +45,13 @@ class StampEditor extends AnnotationEditor {
 
   #resizeTimeoutId = null;
 
+  #rotationDiv = null;
+
   #isSvg = false;
 
   #hasBeenAddedInUndoStack = false;
+
+  objectRotation = 0;
 
   static _type = "stamp";
 
@@ -283,8 +287,9 @@ class StampEditor extends AnnotationEditor {
     if (this.#bitmapId) {
       this.#bitmap = null;
       this._uiManager.imageManager.deleteId(this.#bitmapId);
-      this.#canvas?.remove();
+      this.#rotationDiv?.remove();
       this.#canvas = null;
+      this.#rotationDiv = null;
       if (this.#resizeTimeoutId) {
         clearTimeout(this.#resizeTimeoutId);
         this.#resizeTimeoutId = null;
@@ -445,9 +450,19 @@ class StampEditor extends AnnotationEditor {
     }
 
     this._uiManager.enableWaiting(false);
+    const rotationDiv = (this.#rotationDiv = document.createElement("div"));
+    Object.assign(rotationDiv.style, {
+      position: "absolute",
+      inset: 0,
+      width: "100%",
+      height: "100%",
+      transformOrigin: "center center",
+    });
+    this.addContainer(rotationDiv);
+
     const canvas = (this.#canvas = document.createElement("canvas"));
     canvas.setAttribute("role", "img");
-    this.addContainer(canvas);
+    rotationDiv.append(canvas);
 
     this.width = width / pageWidth;
     this.height = height / pageHeight;
@@ -468,6 +483,8 @@ class StampEditor extends AnnotationEditor {
       div.hidden = false;
     }
     this.#drawBitmap();
+    this.#applyObjectRotation();
+    this.#createRotationHandle();
     if (!this.#hasBeenAddedInUndoStack) {
       this.parent.addUndoableEditor(this);
       this.#hasBeenAddedInUndoStack = true;
@@ -799,9 +816,15 @@ class StampEditor extends AnnotationEditor {
         modificationDate,
       };
     }
-    const editor = await super.deserialize(data, parent, uiManager);
+    const objectRotation = data.rotation || 0;
+    const editor = await super.deserialize(
+      { ...data, rotation: parent.viewport.rotation },
+      parent,
+      uiManager
+    );
     const { rect, bitmap, bitmapUrl, bitmapId, isSvg, accessibilityData } =
       data;
+    editor.objectRotation = objectRotation;
     if (missingCanvas) {
       uiManager.addMissingCanvas(data.id, editor);
       editor.#missingCanvas = true;
@@ -846,6 +869,7 @@ class StampEditor extends AnnotationEditor {
     const serialized = Object.assign(super.serialize(isForCopying), {
       bitmapId: this.#bitmapId,
       isSvg: this.#isSvg,
+      rotation: this.objectRotation || 0,
     });
     this.addComment(serialized);
 
@@ -910,11 +934,13 @@ class StampEditor extends AnnotationEditor {
   #hasElementChanged(serialized) {
     const {
       pageIndex,
+      rotation,
       accessibilityData: { altText },
     } = this._initialData;
 
     const isSamePageIndex = serialized.pageIndex === pageIndex;
     const isSameAltText = (serialized.accessibilityData?.alt || "") === altText;
+    const isSameRotation = (serialized.rotation || 0) === (rotation || 0);
 
     return {
       isSame:
@@ -922,9 +948,114 @@ class StampEditor extends AnnotationEditor {
         !this._hasBeenMoved &&
         !this._hasBeenResized &&
         isSamePageIndex &&
-        isSameAltText,
+        isSameAltText &&
+        isSameRotation,
       isSameAltText,
     };
+  }
+
+  #applyObjectRotation() {
+    if (!this.#rotationDiv) {
+      return;
+    }
+    this.#rotationDiv.style.transform = `rotate(${this.objectRotation || 0}deg)`;
+  }
+
+  #rotate(angle) {
+    this.objectRotation = angle;
+    this.#applyObjectRotation();
+  }
+
+  #createRotationHandle() {
+    if (
+      !this.#rotationDiv ||
+      this.#rotationDiv.querySelector(".rotation-handle")
+    ) {
+      return;
+    }
+
+    const line = document.createElement("div");
+    Object.assign(line.style, {
+      position: "absolute",
+      top: "-12px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      width: "1px",
+      height: "12px",
+      backgroundColor: "#007bff",
+      pointerEvents: "none",
+    });
+    this.#rotationDiv.append(line);
+
+    const handle = document.createElement("div");
+    handle.className = "rotation-handle";
+    Object.assign(handle.style, {
+      position: "absolute",
+      top: "-25px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      width: "14px",
+      height: "14px",
+      backgroundColor: "#007bff",
+      borderRadius: "50%",
+      cursor: "grab",
+      zIndex: "100",
+      border: "2px solid #ffffff",
+      boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+    });
+    this.#rotationDiv.append(handle);
+
+    handle.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      handle.style.cursor = "grabbing";
+      const savedCursor = document.body.style.cursor;
+      document.body.style.cursor = "grabbing";
+
+      const initialRotation = this.objectRotation || 0;
+      const rect = this.#rotationDiv.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+
+      const onPointerMove = moveEvent => {
+        moveEvent.preventDefault();
+        moveEvent.stopPropagation();
+
+        const angleRad = Math.atan2(
+          moveEvent.clientY - cy,
+          moveEvent.clientX - cx
+        );
+        let angleDeg = angleRad * (180 / Math.PI);
+        angleDeg = (angleDeg + 90) % 360;
+        if (angleDeg < 0) {
+          angleDeg += 360;
+        }
+
+        this.#rotate(Math.round(angleDeg));
+      };
+
+      const onPointerUp = upEvent => {
+        upEvent.preventDefault();
+        upEvent.stopPropagation();
+        handle.style.cursor = "grab";
+        document.body.style.cursor = savedCursor;
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+
+        const newRotation = this.objectRotation || 0;
+        if (newRotation !== initialRotation) {
+          this.addCommands({
+            cmd: this.#rotate.bind(this, newRotation),
+            undo: this.#rotate.bind(this, initialRotation),
+            mustExec: false,
+          });
+          this.addToAnnotationStorage();
+        }
+      };
+
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+    });
   }
 
   /** @inheritdoc */
