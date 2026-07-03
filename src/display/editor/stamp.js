@@ -967,6 +967,20 @@ class StampEditor extends AnnotationEditor {
       resizers.style.transformOrigin = "center center";
       resizers.style.transform = `rotate(${rotation}deg)`;
     }
+
+    // Update the bounding box after rotation
+    const [parentWidth, parentHeight] = this.pageDimensions;
+    const { width, height } = this;
+    const outputScale = new OutputScale();
+    const scaledWidth = Math.ceil(width * parentWidth * outputScale.sx);
+    const scaledHeight = Math.ceil(height * parentHeight * outputScale.sy);
+
+    this.rect = [
+      this.x - (scaledWidth - width) / 2,
+      this.y - (scaledHeight - height) / 2,
+      scaledWidth,
+      scaledHeight
+    ];
   }
 
   #rotate(angle) {
