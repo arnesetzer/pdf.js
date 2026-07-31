@@ -47,6 +47,10 @@ class StampEditor extends AnnotationEditor {
 
   #rotationDiv = null;
 
+  #rotationHandle = null;
+
+  #rotationLine = null;
+
   #isSvg = false;
 
   #hasBeenAddedInUndoStack = false;
@@ -290,6 +294,8 @@ class StampEditor extends AnnotationEditor {
       this.#rotationDiv?.remove();
       this.#canvas = null;
       this.#rotationDiv = null;
+      this.#rotationHandle = null;
+      this.#rotationLine = null;
       if (this.#resizeTimeoutId) {
         clearTimeout(this.#resizeTimeoutId);
         this.#resizeTimeoutId = null;
@@ -978,7 +984,7 @@ class StampEditor extends AnnotationEditor {
       this.x - (scaledWidth - width) / 2,
       this.y - (scaledHeight - height) / 2,
       scaledWidth,
-      scaledHeight
+      scaledHeight,
     ];
   }
 
@@ -991,6 +997,19 @@ class StampEditor extends AnnotationEditor {
   select() {
     super.select();
     this.#applyObjectRotation();
+    if (this.#rotationHandle) {
+      this.#rotationHandle.style.display = "";
+      this.#rotationLine.style.display = "";
+    }
+  }
+
+  /** @inheritdoc */
+  unselect() {
+    super.unselect();
+    if (this.#rotationHandle) {
+      this.#rotationHandle.style.display = "none";
+      this.#rotationLine.style.display = "none";
+    }
   }
 
   #createRotationHandle() {
@@ -1029,8 +1048,12 @@ class StampEditor extends AnnotationEditor {
       zIndex: "100",
       border: "2px solid #ffffff",
       boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+      display: this.isSelected ? "" : "none",
     });
     this.#rotationDiv.append(handle);
+    this.#rotationHandle = handle;
+    this.#rotationLine = line;
+    line.style.display = handle.style.display;
 
     handle.addEventListener("pointerdown", event => {
       event.preventDefault();

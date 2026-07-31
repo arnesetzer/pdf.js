@@ -43,6 +43,10 @@ class FreeTextEditor extends AnnotationEditor {
 
   #fontSize;
 
+  #rotationHandle = null;
+
+  #rotationLine = null;
+
   _colorPicker = null;
 
   static _freeTextDefaultContent = "";
@@ -927,6 +931,19 @@ class FreeTextEditor extends AnnotationEditor {
   select() {
     super.select();
     this.#applyObjectRotation();
+    if (this.#rotationHandle) {
+      this.#rotationHandle.style.display = "";
+      this.#rotationLine.style.display = "";
+    }
+  }
+
+  /** @inheritdoc */
+  unselect() {
+    super.unselect();
+    if (this.#rotationHandle) {
+      this.#rotationHandle.style.display = "none";
+      this.#rotationLine.style.display = "none";
+    }
   }
 
   #applyObjectRotation() {
@@ -978,8 +995,12 @@ class FreeTextEditor extends AnnotationEditor {
       zIndex: "100",
       border: "2px solid #ffffff",
       boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+      display: this.isSelected ? "" : "none",
     });
     this.editorDiv.append(handle);
+    this.#rotationHandle = handle;
+    this.#rotationLine = line;
+    line.style.display = handle.style.display;
 
     // this is nessecary, otherwise the textbox moves as well
     handle.addEventListener("pointerdown", e => {
